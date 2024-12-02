@@ -7,9 +7,8 @@ use crate::utils::*;
 use std::env;
 
 fn day01() {
-    let cal_vals = extract_calvals(&read_lines());
-    let sum:u32 = cal_vals.iter().map(|&b| b as u32).sum();
-    println!("s{:?}", sum);
+    //println!("{:?}", get_day01(&read_lines()).unwrap());
+    println!("{:?}", get_day01_part2(&read_lines()).unwrap());
 }
 
 fn main() {
