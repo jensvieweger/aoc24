@@ -1,6 +1,7 @@
 use regex::Regex;
+use std::iter::zip;
 
-fn parse_data(data: &Vec<String>) -> Option<(Vec<usize>,Vec<usize>,Vec<(u32,u32)>)> {
+fn parse_data(data: &Vec<String>) -> Option<(Vec<usize>,Vec<usize>,Vec<(usize, u32, u32)>)> {
     let mut factors = Vec::new();
 
     let re_fac = Regex::new(r"mul\((\d*),(\d*)\)").unwrap();
@@ -10,7 +11,11 @@ fn parse_data(data: &Vec<String>) -> Option<(Vec<usize>,Vec<usize>,Vec<(u32,u32)
     let singleline = data.concat();
 
     for (_, [factor_a, factor_b]) in re_fac.captures_iter(&singleline).map(|c| c.extract()) {
-        factors.push((factor_a.parse::<u32>().ok()?, factor_b.parse::<u32>().ok()?));
+        factors.push((0, factor_a.parse::<u32>().ok()?, factor_b.parse::<u32>().ok()?));
+    }
+    let mut f_iter = zip (factors.iter_mut(), re_fac.find_iter(&singleline).map(|f| f.start()));
+    for (factor, start) in f_iter {
+        factor.0 = start;
     }
     let dos:Vec<usize> = re_do.find_iter(&singleline).map(|f| f.start()).collect();
     let donts:Vec<usize> = re_dont.find_iter(&singleline).map(|f| f.start()).collect();
@@ -19,9 +24,43 @@ fn parse_data(data: &Vec<String>) -> Option<(Vec<usize>,Vec<usize>,Vec<(u32,u32)
     Some((dos, donts, factors))
 }
 
-fn filter_factors(dos: &Vec<usize>, donts: &Vec<usize>, factors: &Vec<(u32,u32)>) -> Option<Vec<(u32,u32)>>{
+fn filter_factors(dos: &Vec<usize>, donts: &Vec<usize>, factors: &Vec<(usize,u32,u32)>) -> Option<Vec<(u32,u32)>>{
 
-    None
+    let mut valid_range = Vec::new();
+    let mut start_valid = 0;
+    let mut do_iter = dos.iter().peekable();
+    let mut dont_iter = donts.iter();
+
+    for dont in dont_iter {
+        if do_iter.peek().is_some() {
+            let next_do = do_iter.peek().unwrap(); 
+            if dont < *next_do {
+                valid_range.push((start_valid, *dont));
+                start_valid = **next_do;   
+                do_iter.next();     
+            }
+        }
+    }
+    // assume that there is at least one entry each
+    if dos.last().unwrap() > donts.last().unwrap() {
+        valid_range.push((*dos.last().unwrap(), usize::MAX));
+    }
+
+    //println!("{:?}", valid_range);
+
+    // of course the rust way would probably be to create a filtering iterator
+    let mut result = Vec::new();
+
+    for factor in factors {
+        for vr in &valid_range {
+            if factor.0 > vr.0 && factor.0 < vr.1 {
+                result.push((factor.1, factor.2));
+                break;
+            }
+        }
+    }
+
+    Some(result)
 }
 
 pub fn get_day03_part2(data: &Vec<String>) -> Option<u32> {
@@ -79,10 +118,10 @@ mod tests {
 
         assert_eq!(factors.len(), 4);
 
-        assert_eq!(factors[0], (2, 4));
-        assert_eq!(factors[1], (5, 5));
-        assert_eq!(factors[2], (11, 8));
-        assert_eq!(factors[3], (8, 5));
+        assert_eq!(factors[0], (1, 2, 4));
+        assert_eq!(factors[1], (28, 5, 5));
+        assert_eq!(factors[2], (48, 11, 8));
+        assert_eq!(factors[3], (64, 8, 5));
 
     }
 
@@ -90,7 +129,7 @@ mod tests {
     fn test_filter_factors() {
         let dos = vec![59];
         let donts = vec![20];
-        let factors = vec![(2, 4), (5, 5), (11, 8), (8, 5)];
+        let factors = vec![(1, 2, 4), (28, 5, 5), (48, 11, 8), (64, 8, 5)];
 
         let filtered_factors = filter_factors(&dos, &donts, &factors);
 
@@ -101,7 +140,7 @@ mod tests {
         assert_eq!(final_data.len(), 2);
 
         assert_eq!(final_data[0], (2, 4));
-        assert_eq!(final_data[3], (8, 5));
+        assert_eq!(final_data[1], (8, 5));
 
     }
 
